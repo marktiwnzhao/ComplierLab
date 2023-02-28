@@ -1,3 +1,4 @@
+/.idea
 /src/*
 !/src/*.java
 !/src/*.g4
@@ -8,4 +9,6 @@
 /src/CmmParserListener.java
 /src/CmmParserVisitor.java
 /classes
+Lab.iml
+submit.sh
 .DS_Store
