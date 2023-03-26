@@ -20,6 +20,8 @@ public class Visitor extends SysYParserBaseVisitor<Void> {
                 highLightTypes[i] = "[red]";
             } else if(i + 1 == 34){
                 highLightTypes[i] = "[green]";
+            } else {
+                highLightTypes[i] = null;
             }
         }
 
