@@ -43,7 +43,7 @@ public class Visitor extends SysYParserBaseVisitor<Void> {
         int skip = ruleContext.depth() + 1;
         int type = terminalNode.getSymbol().getType();
         String ruleName;
-        if(type < 25 || type == 33){
+        if((type > 0 && type < 25) || type == 33){
             Indent(skip);
             ruleName = lexerRuleNames[type - 1];
             System.err.println(terminalNode.getText() + " " + ruleName + highLightTypes[type - 1]);
