@@ -21,7 +21,7 @@ public class Main {
         ErrorListener errorListener = new ErrorListener();
         sysYParser.addErrorListener(errorListener);
 
-        ParseTree tree = (ParseTree) sysYParser.program();
+        ParseTree tree = sysYParser.program();
 
         if (!errorListener.isError) {
             //没有词法错误
