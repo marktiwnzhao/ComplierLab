@@ -42,11 +42,14 @@ public class Visitor extends SysYParserBaseVisitor<Void> {
         RuleContext ruleContext = (RuleContext) terminalNode.getParent();
         int skip = ruleContext.depth() + 1;
         int type = terminalNode.getSymbol().getType();
-        Indent(skip);
-        String ruleName = lexerRuleNames[type - 1];
+        String ruleName;
         if(type < 25 || type == 33){
+            Indent(skip);
+            ruleName = lexerRuleNames[type - 1];
             System.err.println(terminalNode.getText() + " " + ruleName + highLightTypes[type - 1]);
         } else if(type == 34) {
+            Indent(skip);
+            ruleName = lexerRuleNames[type - 1];
             System.err.println(parseInt(terminalNode.getText()) + " " + ruleName + highLightTypes[type - 1]);
         }
         return super.visitTerminal(terminalNode);
