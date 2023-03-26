@@ -1,5 +1,7 @@
+import org.antlr.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Token;
 
 import java.io.IOException;
@@ -14,10 +16,15 @@ public class Main {
         String source = args[0];
         CharStream input = CharStreams.fromFileName(source);
         SysYLexer sysYLexer = new SysYLexer(input);
-        sysYLexer.removeErrorListeners();
+        CommonTokenStream tokenStream = new CommonTokenStream(sysYLexer);
+
+        SysYParser sysYParser = new SysYParser(tokenStream);
+
+        sysYParser.removeErrorListeners();
         ErrorListener errorListener = new ErrorListener();
-        sysYLexer.addErrorListener(errorListener);
-        List<? extends Token> allTokens = sysYLexer.getAllTokens();
+        sysYParser.addErrorListener(errorListener);
+
+        ParseTree tree = sysYParser.program();
 
         if (!errorListener.isError) {
             //没有词法错误

@@ -38,7 +38,7 @@ funcFParams : funcFParam (COMMA funcFParam)* ;
 
 funcFParam : bType IDENT (L_BRACKT R_BRACKT (L_BRACKT exp R_BRACKT)*)? ;
 
-block : L_BRACE blockItem? R_BRACE ;
+block : L_BRACE blockItem* R_BRACE ;
 
 blockItem : decl | stmt ;
 
