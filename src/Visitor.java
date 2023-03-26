@@ -41,7 +41,7 @@ public class Visitor extends SysYParserBaseVisitor<Void> {
     public Void visitTerminal(TerminalNode terminalNode) {
         RuleContext ruleContext = (RuleContext) terminalNode.getParent();
         int skip = ruleContext.depth() + 1;
-        int type = terminalNode.getSymbol().getType();
+        int type = terminalNode.getSymbol().getType();// EOF的type值为 -1，要注意
         String ruleName;
         if((type > 0 && type < 25) || type == 33){
             Indent(skip);
