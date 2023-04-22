@@ -107,9 +107,9 @@ public class TypeCheckingListener extends SysYParserBaseListener {
         for(int i = 0; i < ctx.constDef().size(); i++) {
             String varName = ctx.constDef(i).IDENT().getText();
             Symbol symbol = currentScope.resolveCurrentScope(varName);
-//            if(currentScope.getEnclosingScope() instanceof FunctionSymbol && symbol == null) {
-//                symbol = currentScope.getEnclosingScope().resolveCurrentScope(varName);
-//            }
+            if(currentScope.getEnclosingScope() instanceof FunctionSymbol && symbol == null) {
+                symbol = currentScope.getEnclosingScope().resolveCurrentScope(varName);
+            }
             // 类型3：变量重复声明
             if(symbol != null) {
                 System.err.println("Error type 3 at Line " + ctx.constDef(i).IDENT().getSymbol().getLine() + ": Redefined variable '" + varName + "'.");
@@ -144,9 +144,9 @@ public class TypeCheckingListener extends SysYParserBaseListener {
         for(int i = 0; i < ctx.varDef().size(); i++) {
             String varName = ctx.varDef(i).IDENT().getText();
             Symbol symbol = currentScope.resolveCurrentScope(varName);
-//            if(currentScope.getEnclosingScope() instanceof FunctionSymbol && symbol == null) {
-//                symbol = currentScope.getEnclosingScope().resolveCurrentScope(varName);
-//            }
+            if(currentScope.getEnclosingScope() instanceof FunctionSymbol && symbol == null) {
+                symbol = currentScope.getEnclosingScope().resolveCurrentScope(varName);
+            }
             // 类型3：变量重复声明
             if(symbol != null) {
                 System.err.println("Error type 3 at Line " + ctx.varDef(i).IDENT().getSymbol().getLine() + ": Redefined variable '" + varName + "'.");
