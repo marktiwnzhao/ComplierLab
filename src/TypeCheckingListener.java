@@ -65,7 +65,7 @@ public class TypeCheckingListener extends SysYParserBaseListener {
             } else {
                 List<TerminalNode> lBrackt = ctx.funcFParam(i).L_BRACKT();
                 Type type = (Type) globalScope.resolve(typeName);
-                if(lBrackt != null) {
+                if(lBrackt != null && lBrackt.size() > 0) {
                     type = new ArrayType(type, 1);// 一维数组（测试只会有一维数组）
                 }
                 parameterTypes.add(type);
