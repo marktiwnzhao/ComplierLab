@@ -282,11 +282,13 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                     isError = true;
                 } else {
                     for(int i = 0; i < realParameterTypes.size(); i++) {
-                        if(!parameterTypes.get(i).equals(realParameterTypes.get(i))) {
-                            // 类型8：参数不匹配
-                            System.err.println("Error type 8 at Line " + ctx.IDENT().getSymbol().getLine() + ": Function '" + funcName + "' is not applicable for arguments.");
-                            isError = true;
-                            break;
+                        if(realParameterTypes.get(i) != null) {
+                            if(!parameterTypes.get(i).equals(realParameterTypes.get(i))) {
+                                // 类型8：参数不匹配
+                                System.err.println("Error type 8 at Line " + ctx.IDENT().getSymbol().getLine() + ": Function '" + funcName + "' is not applicable for arguments.");
+                                isError = true;
+                                break;
+                            }
                         }
                     }
                 }
