@@ -1,7 +1,10 @@
-int a[2][4];
-int c(int a[]) {
-retuen 0;
+const int d = 1;
+int e, f = 1;
+void k() {
+ return;
 }
 int main() {
-c(a[0]);
+    int a, b, c, d = 1;
+    int e, f = k();
+    return 0;
 }
