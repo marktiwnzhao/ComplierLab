@@ -22,7 +22,7 @@ public class Main {
 
         ParseTreeWalker walker = new ParseTreeWalker();
         TypeCheckingListener typeCheckingListener = new TypeCheckingListener();
-        //walker.walk(typeCheckingListener, tree);
+        walker.walk(typeCheckingListener, tree);
 
         if (!typeCheckingListener.isError) {
             //没有词法错误
