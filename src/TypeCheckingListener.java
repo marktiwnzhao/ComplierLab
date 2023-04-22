@@ -49,7 +49,6 @@ public class TypeCheckingListener extends SysYParserBaseListener {
 
     @Override
     public void exitFuncFParams(SysYParser.FuncFParamsContext ctx) {
-        // 类型4：函数重复定义
         if (isRedef) {
             return;
         }
@@ -65,7 +64,7 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                 isError = true;
             } else {
                 List<TerminalNode> lBrackt = ctx.funcFParam(i).L_BRACKT();
-                Type type = globalScope.resolve(typeName).getType();
+                Type type = (Type) globalScope.resolve(typeName);
                 if(lBrackt != null && lBrackt.size() == 1) {
                     type = new ArrayType(type, 1);// 一维数组（测试只会有一维数组）
                 }
@@ -79,7 +78,6 @@ public class TypeCheckingListener extends SysYParserBaseListener {
 
     @Override
     public void enterBlock(SysYParser.BlockContext ctx) {
-        // 类型4：函数重复定义
         if (isRedef) {
             return;
         }
@@ -93,7 +91,6 @@ public class TypeCheckingListener extends SysYParserBaseListener {
 
     @Override
     public void exitBlock(SysYParser.BlockContext ctx) {
-        // 类型4：函数重复定义
         if (isRedef) {
             return;
         }
@@ -102,15 +99,17 @@ public class TypeCheckingListener extends SysYParserBaseListener {
 
     @Override
     public void exitConstDecl(SysYParser.ConstDeclContext ctx) {
-        // 类型4：函数重复定义
         if (isRedef) {
             return;
         }
         String typeName = ctx.bType().getText();
-        Type consType = globalScope.resolve(typeName).getType();
+        Type consType = (Type)globalScope.resolve(typeName);
         for(int i = 0; i < ctx.constDef().size(); i++) {
             String varName = ctx.constDef(i).IDENT().getText();
             Symbol symbol = currentScope.resolveCurrentScope(varName);
+            if(currentScope.getEnclosingScope() instanceof FunctionSymbol && symbol == null) {
+                symbol = currentScope.getEnclosingScope().resolveCurrentScope(varName);
+            }
             // 类型3：变量重复声明
             if(symbol != null) {
                 System.err.println("Error type 3 at Line " + ctx.constDef(i).IDENT().getSymbol().getLine() + ": Redefined variable '" + varName + "'.");
@@ -137,15 +136,17 @@ public class TypeCheckingListener extends SysYParserBaseListener {
 
     @Override
     public void exitVarDecl(SysYParser.VarDeclContext ctx) {
-        // 类型4：函数重复定义
         if (isRedef) {
             return;
         }
         String typeName = ctx.bType().getText();
-        Type varType = globalScope.resolve(typeName).getType();
+        Type varType = (Type) globalScope.resolve(typeName);
         for(int i = 0; i < ctx.varDef().size(); i++) {
             String varName = ctx.varDef(i).IDENT().getText();
             Symbol symbol = currentScope.resolveCurrentScope(varName);
+            if(currentScope.getEnclosingScope() instanceof FunctionSymbol && symbol == null) {
+                symbol = currentScope.getEnclosingScope().resolveCurrentScope(varName);
+            }
             // 类型3：变量重复声明
             if(symbol != null) {
                 System.err.println("Error type 3 at Line " + ctx.varDef(i).IDENT().getSymbol().getLine() + ": Redefined variable '" + varName + "'.");
@@ -156,7 +157,7 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                     if(ctx.varDef(i).initVal() != null) {
                         Type type = typeTree.get(ctx.varDef(i).initVal().exp());
                         if(type != null) {
-                            if(!type.equals(varType)) {
+                            if(!varType.equals(type)) {
                                 // 类型5：赋值号两侧类型不匹配
                                 System.err.println("Error type 5 at Line " + ctx.varDef(i).IDENT().getSymbol().getLine() + ": Type mismatched for assignment.");
                                 isError = true;
@@ -174,13 +175,11 @@ public class TypeCheckingListener extends SysYParserBaseListener {
 
     @Override
     public void exitAssignStmt(SysYParser.AssignStmtContext ctx) {
-        // 类型4：函数重复定义
         if (isRedef) {
             return;
         }
         Type lValType = typeTree.get(ctx.lVal());
         Type expType = typeTree.get(ctx.exp());
-        List<TerminalNode> lBrackt = ctx.lVal().L_BRACKT();
         if(lValType != null && expType != null) {
             if(lValType.isFunction()) {
                 // 类型11：函数名不能作为左值
@@ -195,7 +194,6 @@ public class TypeCheckingListener extends SysYParserBaseListener {
     }
     @Override
     public void exitReturnStmt(SysYParser.ReturnStmtContext ctx) {
-        // 类型4：函数重复定义
         if (isRedef) {
             return;
         }
@@ -229,25 +227,6 @@ public class TypeCheckingListener extends SysYParserBaseListener {
         }
     }
     @Override
-    public void enterBlockItem(SysYParser.BlockItemContext ctx) {
-        if(isRedef) {
-            return;
-        }
-        LocalScope localScope = new LocalScope(currentScope);
-
-        String localScopeName = localScope.getName() + localScopeCounter;
-        localScope.setName(localScopeName);
-        localScopeCounter++;
-        currentScope = localScope;
-    }
-    @Override
-    public void exitBlockItem(SysYParser.BlockItemContext ctx) {
-        if(isRedef) {
-            return;
-        }
-        currentScope = currentScope.getEnclosingScope();
-    }
-    @Override
     public void exitExpParenthesis(SysYParser.ExpParenthesisContext ctx) {
         if(isRedef) {
             return;
@@ -266,7 +245,7 @@ public class TypeCheckingListener extends SysYParserBaseListener {
         if(isRedef) {
             return;
         }
-        typeTree.put(ctx, globalScope.resolve("int").getType());
+        typeTree.put(ctx, (Type)globalScope.resolve("int"));
     }
     @Override
     public void exitCallFuncExp(SysYParser.CallFuncExpContext ctx) {
@@ -304,7 +283,7 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                 } else {
                     for(int i = 0; i < realParameterTypes.size(); i++) {
                         if(!parameterTypes.get(i).equals(realParameterTypes.get(i))) {
-                            // 类型3：参数不匹配
+                            // 类型8：参数不匹配
                             System.err.println("Error type 8 at Line " + ctx.IDENT().getSymbol().getLine() + ": Function '" + funcName + "' is not applicable for arguments.");
                             isError = true;
                             break;
@@ -343,7 +322,7 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                 System.err.println("Error type 6 at Line " + ctx.getStart().getLine() + ": The operands of binary operator should be integers.");
                 isError = true;
             } else {
-                typeTree.put(ctx, globalScope.resolve("int").getType());
+                typeTree.put(ctx, (Type)globalScope.resolve("int"));
             }
         }
     }
@@ -360,7 +339,7 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                 System.err.println("Error type 6 at Line " + ctx.getStart().getLine() + ": The operands of binary operator should be integers.");
                 isError = true;
             } else {
-                typeTree.put(ctx, globalScope.resolve("int").getType());
+                typeTree.put(ctx, (Type)globalScope.resolve("int"));
             }
         }
     }
@@ -470,7 +449,7 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                         System.err.println("Error type 9 at Line " + ctx.IDENT().getSymbol().getLine() + ": '" + varName + "' is out of range.");
                         isError = true;
                     } else if(expContexts.size() == ((ArrayType) type).getDimension()) {
-                        type = globalScope.resolve("int").getType();
+                        type = (Type)globalScope.resolve("int");
                         typeTree.put(ctx, type);
                     } else {
                         type = new ArrayType(((ArrayType) type).getSubType(), ((ArrayType) type).getDimension() - expContexts.size());
