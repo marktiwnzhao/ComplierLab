@@ -98,7 +98,7 @@ public class TypeCheckingListener extends SysYParserBaseListener {
     }
 
     @Override
-    public void exitConstDecl(SysYParser.ConstDeclContext ctx) {
+    public void enterConstDecl(SysYParser.ConstDeclContext ctx) {
         if (isRedef) {
             return;
         }
@@ -116,6 +116,26 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                 isError = true;
             } else {
                 List<SysYParser.ConstExpContext> constExpContexts = ctx.constDef(i).constExp();
+                if(!constExpContexts.isEmpty()) {
+                    consType = new ArrayType(consType, constExpContexts.size());
+                }
+                VariableSymbol varSymbol = new VariableSymbol(varName, consType);
+                currentScope.define(varSymbol);
+            }
+        }
+    }
+    @Override
+    public void exitConstDecl(SysYParser.ConstDeclContext ctx) {
+        if (isRedef) {
+            return;
+        }
+        String typeName = ctx.bType().getText();
+        Type consType = (Type)globalScope.resolve(typeName);
+        for(int i = 0; i < ctx.constDef().size(); i++) {
+            String varName = ctx.constDef(i).IDENT().getText();
+            Symbol symbol = currentScope.resolveCurrentScope(varName);
+            if(symbol != null) {
+                List<SysYParser.ConstExpContext> constExpContexts = ctx.constDef(i).constExp();
                 if(constExpContexts.isEmpty()) {
                     Type type = typeTree.get(ctx.constDef(i).constInitVal().constExp());
                     if(type != null) {
@@ -125,17 +145,13 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                             isError = true;
                         }
                     }
-                } else {
-                    consType = new ArrayType(consType, constExpContexts.size());
                 }
-                VariableSymbol varSymbol = new VariableSymbol(varName, consType);
-                currentScope.define(varSymbol);
             }
         }
     }
 
     @Override
-    public void exitVarDecl(SysYParser.VarDeclContext ctx) {
+    public void enterVarDecl(SysYParser.VarDeclContext ctx) {
         if (isRedef) {
             return;
         }
@@ -153,6 +169,26 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                 isError = true;
             } else {
                 List<SysYParser.ConstExpContext> constExpContexts = ctx.varDef(i).constExp();
+                if(!constExpContexts.isEmpty()) {
+                    varType = new ArrayType(varType, constExpContexts.size());
+                }
+                VariableSymbol varSymbol = new VariableSymbol(varName, varType);
+                currentScope.define(varSymbol);
+            }
+        }
+    }
+    @Override
+    public void exitVarDecl(SysYParser.VarDeclContext ctx) {
+        if (isRedef) {
+            return;
+        }
+        String typeName = ctx.bType().getText();
+        Type varType = (Type) globalScope.resolve(typeName);
+        for(int i = 0; i < ctx.varDef().size(); i++) {
+            String varName = ctx.varDef(i).IDENT().getText();
+            Symbol symbol = currentScope.resolveCurrentScope(varName);
+            if(symbol != null) {
+                List<SysYParser.ConstExpContext> constExpContexts = ctx.varDef(i).constExp();
                 if(constExpContexts.isEmpty()) {
                     if(ctx.varDef(i).initVal() != null) {
                         Type type = typeTree.get(ctx.varDef(i).initVal().exp());
@@ -164,11 +200,7 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                             }
                         }
                     }
-                } else {
-                    varType = new ArrayType(varType, constExpContexts.size());
                 }
-                VariableSymbol varSymbol = new VariableSymbol(varName, varType);
-                currentScope.define(varSymbol);
             }
         }
     }
@@ -453,8 +485,8 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                 if(!expContexts.isEmpty()) {
                     if(expContexts.size() > ((ArrayType) type).getDimension()) {
                         // 类型9：对非数组变量使用下标
-//                        System.err.println("Error type 9 at Line " + ctx.IDENT().getSymbol().getLine() + ": '" + varName + "' is out of range.");
-//                        isError = true;
+                        System.err.println("Error type 9 at Line " + ctx.IDENT().getSymbol().getLine() + ": '" + varName + "' is out of range.");
+                        isError = true;
                     } else if(expContexts.size() == ((ArrayType) type).getDimension()) {
                         type = (Type)globalScope.resolve("int");
                         typeTree.put(ctx, type);
