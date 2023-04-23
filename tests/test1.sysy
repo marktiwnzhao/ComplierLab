@@ -1,9 +1,4 @@
+int b;
 int a() {
-    return 10;
-}
-
-int main() {
-    int a = 5;
-    return a + a();
-
-}
+b = a();}
+int c = a();
