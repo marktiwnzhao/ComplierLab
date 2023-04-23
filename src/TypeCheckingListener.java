@@ -282,6 +282,11 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                     isError = true;
                 } else {
                     for(int i = 0; i < realParameterTypes.size(); i++) {
+                        if(realParameterTypes.get(i) == null) {
+                            return;
+                        }
+                    }
+                    for(int i = 0; i < realParameterTypes.size(); i++) {
                         if(realParameterTypes.get(i) != null) {
                             if(!parameterTypes.get(i).equals(realParameterTypes.get(i))) {
                                 // 类型8：参数不匹配
