@@ -285,7 +285,7 @@ public class TypeCheckingListener extends SysYParserBaseListener {
             return;
         }
         String funcName = ctx.IDENT().getText();
-        Symbol symbol = currentScope.resolve(funcName);
+        Symbol symbol = globalScope.resolveCurrentScope(funcName);
         if(symbol == null) {
             // 类型2：函数未定义
             System.err.println("Error type 2 at Line " + ctx.IDENT().getSymbol().getLine() + ": Undefined function '" + funcName + "'.");
