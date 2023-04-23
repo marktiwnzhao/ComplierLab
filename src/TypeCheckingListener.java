@@ -453,8 +453,8 @@ public class TypeCheckingListener extends SysYParserBaseListener {
                 if(!expContexts.isEmpty()) {
                     if(expContexts.size() > ((ArrayType) type).getDimension()) {
                         // 类型9：对非数组变量使用下标
-                        System.err.println("Error type 9 at Line " + ctx.IDENT().getSymbol().getLine() + ": '" + varName + "' is out of range.");
-                        isError = true;
+//                        System.err.println("Error type 9 at Line " + ctx.IDENT().getSymbol().getLine() + ": '" + varName + "' is out of range.");
+//                        isError = true;
                     } else if(expContexts.size() == ((ArrayType) type).getDimension()) {
                         type = (Type)globalScope.resolve("int");
                         typeTree.put(ctx, type);
