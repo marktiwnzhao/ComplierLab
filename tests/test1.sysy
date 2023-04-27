@@ -1,4 +1,4 @@
-int b;
-int a() {
-b = a();}
-int c = a();
+int main() {
+int a[2], b;
+b = a[1];
+}

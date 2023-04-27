@@ -103,8 +103,8 @@ public class TypeCheckingListener extends SysYParserBaseListener {
             return;
         }
         String typeName = ctx.bType().getText();
-        Type consType = (Type)globalScope.resolve(typeName);
         for(int i = 0; i < ctx.constDef().size(); i++) {
+            Type consType = (Type)globalScope.resolve(typeName);
             String varName = ctx.constDef(i).IDENT().getText();
             Symbol symbol = currentScope.resolveCurrentScope(varName);
             if(currentScope.getEnclosingScope() instanceof FunctionSymbol && symbol == null) {
@@ -156,8 +156,8 @@ public class TypeCheckingListener extends SysYParserBaseListener {
             return;
         }
         String typeName = ctx.bType().getText();
-        Type varType = (Type) globalScope.resolve(typeName);
         for(int i = 0; i < ctx.varDef().size(); i++) {
+            Type varType = (Type) globalScope.resolve(typeName);
             String varName = ctx.varDef(i).IDENT().getText();
             Symbol symbol = currentScope.resolveCurrentScope(varName);
             if(currentScope.getEnclosingScope() instanceof FunctionSymbol && symbol == null) {
