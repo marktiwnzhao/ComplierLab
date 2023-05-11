@@ -8,8 +8,8 @@ import java.io.IOException;
 
 public class Main {
     public static void main(String[] args) throws IOException {
-        if (args.length < 1) {
-            System.err.println("input path is required");
+        if (args.length != 2) {
+            System.err.println("The number of arguments is wrong!");
         }
         String source = args[0];
         CharStream input = CharStreams.fromFileName(source);
@@ -19,15 +19,7 @@ public class Main {
         SysYParser sysYParser = new SysYParser(tokenStream);
 
         ParseTree tree = sysYParser.program();
-
-        ParseTreeWalker walker = new ParseTreeWalker();
-        TypeCheckingListener typeCheckingListener = new TypeCheckingListener();
-        walker.walk(typeCheckingListener, tree);
-
-        if (!typeCheckingListener.isError) {
-            //没有词法错误
-            Visitor visitor = new Visitor(sysYLexer.getRuleNames(), sysYParser.getRuleNames());
-            visitor.visit(tree);
-        }
+        LLVMVisitor visitor = new LLVMVisitor(args[1]);
+        visitor.visit(tree);
     }
 }
