@@ -84,10 +84,10 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     @Override
     public LLVMValueRef visitVarDecl(SysYParser.VarDeclContext ctx) {
         for(SysYParser.VarDefContext varDefContext : ctx.varDef()) {
-            String constName = varDefContext.IDENT().getText();
+            String varName = varDefContext.IDENT().getText();
             LLVMValueRef pointer;
             if(currentScope instanceof GlobalScope) {
-                pointer = LLVMAddGlobal(module, int32Type, constName);
+                pointer = LLVMAddGlobal(module, int32Type, varName);
                 if(varDefContext.ASSIGN() != null) {
                     LLVMValueRef initValue = visit(varDefContext.initVal());
                     LLVMSetInitializer(pointer, initValue);
@@ -95,14 +95,14 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
                     LLVMSetInitializer(pointer, zero);
                 }
             } else {
-                pointer = LLVMBuildAlloca(builder, int32Type, constName);
+                pointer = LLVMBuildAlloca(builder, int32Type, varName);
                 if(varDefContext.ASSIGN() != null) {
                     LLVMValueRef initValue = visit(varDefContext.initVal());
                     LLVMBuildStore(builder, initValue, pointer);
                 }
             }
 
-            currentScope.define(constName, pointer);
+            currentScope.define(varName, pointer);
         }
         return null;
     }
