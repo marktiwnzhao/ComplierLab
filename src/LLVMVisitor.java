@@ -3,6 +3,8 @@ import org.bytedeco.javacpp.Pointer;
 import org.bytedeco.javacpp.PointerPointer;
 import org.bytedeco.llvm.LLVM.*;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -22,10 +24,11 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     private boolean isReturn = false;
     String filePath;
     private final Map<LLVMValueRef, LLVMTypeRef> functions = new LinkedHashMap<>();
+    private final Deque<LLVMBasicBlockRef> breakBlocks = new ArrayDeque<>();
+    private final Deque<LLVMBasicBlockRef> continueBlocks = new ArrayDeque<>();
     private LLVMValueRef currentFunction = null;
     private LLVMBasicBlockRef ifTrueBlock = null;
     private LLVMBasicBlockRef ifFalseBlock = null;
-    private LLVMBasicBlockRef nextBlock = null;
     // 输出LLVM IR
     public static final BytePointer error = new BytePointer();
     public LLVMVisitor(String filePath) {
@@ -170,7 +173,6 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         LLVMBasicBlockRef next = LLVMAppendBasicBlock(currentFunction, "next");
         ifTrueBlock = ifTrue;
         ifFalseBlock = ifFalse;
-        nextBlock = next;
         LLVMValueRef condition = LLVMBuildICmp(builder, LLVMIntNE, visit(ctx.cond()), zero, "icmp");
 
         LLVMBuildCondBr(builder, condition, ifTrue, ifFalse);
@@ -187,6 +189,39 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         // next
         LLVMPositionBuilderAtEnd(builder, next);
 
+        return null;
+    }
+    @Override
+    public LLVMValueRef visitWhileStmt(SysYParser.WhileStmtContext ctx) {
+        LLVMBasicBlockRef whileCond = LLVMAppendBasicBlock(currentFunction, "whileCond");
+        LLVMBasicBlockRef whileBody = LLVMAppendBasicBlock(currentFunction, "whileBody");
+        LLVMBasicBlockRef whileEnd = LLVMAppendBasicBlock(currentFunction, "whileEnd");
+        LLVMBuildBr(builder, whileCond);
+        LLVMPositionBuilderAtEnd(builder, whileCond);
+        ifTrueBlock = whileBody;
+        ifFalseBlock = whileEnd;
+        LLVMValueRef condition = LLVMBuildICmp(builder, LLVMIntNE, visit(ctx.cond()), zero, "icmp");
+        LLVMBuildCondBr(builder, condition, whileBody, whileEnd);
+        // ifTrue
+        LLVMPositionBuilderAtEnd(builder, whileBody);
+        breakBlocks.push(whileEnd);
+        continueBlocks.push(whileCond);
+        visit(ctx.stmt());
+        breakBlocks.pop();
+        continueBlocks.pop();
+        LLVMBuildBr(builder, whileCond);
+        // ifFalse
+        LLVMPositionBuilderAtEnd(builder, whileEnd);
+        return null;
+    }
+    @Override
+    public LLVMValueRef visitBreakStmt(SysYParser.BreakStmtContext ctx) {
+        LLVMBuildBr(builder, breakBlocks.peek());
+        return null;
+    }
+    @Override
+    public LLVMValueRef visitContinueStmt(SysYParser.ContinueStmtContext ctx) {
+        LLVMBuildBr(builder, continueBlocks.peek());
         return null;
     }
     @Override
