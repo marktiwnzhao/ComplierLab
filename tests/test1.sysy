@@ -1,7 +1,8 @@
-int g_var=2;
+
+void b() {
+}
 int main(){
     int a = 1;
-    int b;
-    a = b;
-    return a+g_var;
+    b();
+    return a;
 }
