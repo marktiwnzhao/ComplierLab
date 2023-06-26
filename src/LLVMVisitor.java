@@ -90,7 +90,7 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         for(int i = 0; i < argCount; i++) {
             String argName = ctx.funcFParams().funcFParam(i).IDENT().getText();
             LLVMValueRef pointer;
-            if(ctx.funcFParams().funcFParam(i).L_BRACKT() != null) {
+            if(ctx.funcFParams().funcFParam(i).L_BRACKT() != null && ctx.funcFParams().funcFParam(i).L_BRACKT().size() > 0) {
                 pointer = LLVMBuildAlloca(builder, LLVMPointerType(int32Type, 0), argName);
                 arrayTypes.put(pointer, LLVMPointerType(int32Type, 0));
             } else {
