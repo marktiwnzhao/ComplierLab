@@ -24,6 +24,7 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     private boolean isReturn = false;
     String filePath;
     private final Map<LLVMValueRef, LLVMTypeRef> functions = new LinkedHashMap<>();
+    private final Map<LLVMValueRef, LLVMTypeRef> arrayTypes = new LinkedHashMap<>();
     private final Deque<LLVMBasicBlockRef> breakBlocks = new ArrayDeque<>();
     private final Deque<LLVMBasicBlockRef> continueBlocks = new ArrayDeque<>();
     private LLVMValueRef currentFunction = null;
@@ -62,7 +63,11 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         // 生成函数参数类型
         PointerPointer<Pointer> argumentTypes = new PointerPointer<>(argCount);
         for(int i = 0; i < argCount; i++) {
-            argumentTypes.put(i, int32Type);
+            if(ctx.funcFParams().funcFParam(i).L_BRACKT() != null && ctx.funcFParams().funcFParam(i).L_BRACKT().size() > 0) {
+                argumentTypes.put(i, LLVMPointerType(int32Type, 0));
+            } else {
+                argumentTypes.put(i, int32Type);
+            }
         }
         // 生成返回类型
         LLVMTypeRef retType = getTypeRef(retTypeName);
@@ -84,7 +89,13 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         currentScope = localScope;
         for(int i = 0; i < argCount; i++) {
             String argName = ctx.funcFParams().funcFParam(i).IDENT().getText();
-            LLVMValueRef pointer = LLVMBuildAlloca(builder, int32Type, argName);
+            LLVMValueRef pointer;
+            if(ctx.funcFParams().funcFParam(i).L_BRACKT() != null) {
+                pointer = LLVMBuildAlloca(builder, LLVMPointerType(int32Type, 0), argName);
+                arrayTypes.put(pointer, LLVMPointerType(int32Type, 0));
+            } else {
+                pointer = LLVMBuildAlloca(builder, int32Type, argName);
+            }
             currentScope.define(argName, pointer);
             LLVMValueRef arg = LLVMGetParam(function, i);
             LLVMBuildStore(builder, arg, pointer);
@@ -112,16 +123,39 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     public LLVMValueRef visitConstDecl(SysYParser.ConstDeclContext ctx) {
         for(SysYParser.ConstDefContext constDefContext : ctx.constDef()) {
             String constName = constDefContext.IDENT().getText();
-            LLVMValueRef initValue = visit(constDefContext.constInitVal());
-            LLVMValueRef pointer;
-            if(currentScope instanceof GlobalScope) {
-                pointer = LLVMAddGlobal(module, int32Type, constName);
-                LLVMSetInitializer(pointer, initValue);
-            } else {
-                pointer = LLVMBuildAlloca(builder, int32Type, constName);
-                LLVMBuildStore(builder, initValue, pointer);
+            LLVMTypeRef constType = int32Type;
+            int size = 0;
+            if(constDefContext.constExp().size() > 0) {    // 数组
+                size = (int) LLVMConstIntGetSExtValue(visit(constDefContext.constExp(0)));
+                constType = LLVMVectorType(constType, size);
             }
-
+            LLVMValueRef pointer;
+            SysYParser.ConstInitValContext constInitValContext = constDefContext.constInitVal();
+            if(currentScope instanceof GlobalScope) {   // 全局常量
+                pointer = LLVMAddGlobal(module, constType, constName);
+                if(size != 0) {
+                    LLVMValueRef[] values = new LLVMValueRef[size];
+                    for(int i = 0; i < size; i++) {
+                        values[i] = visit(constInitValContext.constInitVal(i));
+                    }
+                    LLVMSetInitializer(pointer, LLVMConstVector(new PointerPointer(values), size));
+                    arrayTypes.put(pointer, constType);
+                } else {
+                    LLVMSetInitializer(pointer, visit(constInitValContext));
+                }
+            } else {    // 局部常量
+                pointer = LLVMBuildAlloca(builder, constType, constName);
+                if(size != 0) {
+                    LLVMValueRef[] values = new LLVMValueRef[size];
+                    for(int i = 0; i < size; i++) {
+                        values[i] = visit(constInitValContext.constInitVal(i));
+                    }
+                    initArray(pointer, constType, values);
+                    arrayTypes.put(pointer, constType);
+                } else {
+                    LLVMBuildStore(builder, visit(constInitValContext), pointer);
+                }
+            }
             currentScope.define(constName, pointer);
         }
         return null;
@@ -130,23 +164,57 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     public LLVMValueRef visitVarDecl(SysYParser.VarDeclContext ctx) {
         for(SysYParser.VarDefContext varDefContext : ctx.varDef()) {
             String varName = varDefContext.IDENT().getText();
+            LLVMTypeRef varType = int32Type;
+            int size = 0;
+            if(varDefContext.constExp().size() > 0) {
+                size = (int) LLVMConstIntGetSExtValue(visit(varDefContext.constExp(0)));
+                varType = LLVMVectorType(varType, size);
+            }
             LLVMValueRef pointer;
             if(currentScope instanceof GlobalScope) {
-                pointer = LLVMAddGlobal(module, int32Type, varName);
+                pointer = LLVMAddGlobal(module, varType, varName);
                 if(varDefContext.ASSIGN() != null) {
-                    LLVMValueRef initValue = visit(varDefContext.initVal());
-                    LLVMSetInitializer(pointer, initValue);
+                    SysYParser.InitValContext initValContext = varDefContext.initVal();
+                    if(size != 0) {
+                        LLVMValueRef[] values = new LLVMValueRef[size];
+                        for(int i = 0; i < size; i++) {
+                            values[i] = visit(initValContext.initVal(i));
+                        }
+                        LLVMSetInitializer(pointer, LLVMConstVector(new PointerPointer(values), size));
+                        arrayTypes.put(pointer, varType);
+                    } else {
+                        LLVMSetInitializer(pointer, visit(initValContext));
+                    }
                 } else {
-                    LLVMSetInitializer(pointer, zero);
+                    if(size != 0) {
+                        LLVMValueRef[] values = new LLVMValueRef[size];
+                        for(int i = 0; i < size; i++) {
+                            values[i] = zero;
+                        }
+                        LLVMSetInitializer(pointer, LLVMConstVector(new PointerPointer(values), size));
+                        arrayTypes.put(pointer, varType);
+                    } else {
+                        LLVMSetInitializer(pointer, zero);
+                    }
                 }
             } else {
-                pointer = LLVMBuildAlloca(builder, int32Type, varName);
+                pointer = LLVMBuildAlloca(builder, varType, varName);
                 if(varDefContext.ASSIGN() != null) {
-                    LLVMValueRef initValue = visit(varDefContext.initVal());
-                    LLVMBuildStore(builder, initValue, pointer);
+                    SysYParser.InitValContext initValContext = varDefContext.initVal();
+                    if(size != 0) {
+                        LLVMValueRef[] values = new LLVMValueRef[size];
+                        for(int i = 0; i < size; i++) {
+                            values[i] = visit(initValContext.initVal(i));
+                        }
+                        initArray(pointer, varType, values);
+                    } else {
+                        LLVMBuildStore(builder, visit(initValContext), pointer);
+                    }
+                }
+                if(size != 0) {
+                    arrayTypes.put(pointer, varType);
                 }
             }
-
             currentScope.define(varName, pointer);
         }
         return null;
@@ -231,6 +299,9 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     @Override
     public LLVMValueRef visitLvalExp(SysYParser.LvalExpContext ctx) {
         LLVMValueRef lValPointer = visit(ctx.lVal());
+        if(arrayTypes.get(lValPointer) != null) {
+            return lValPointer;
+        }
         return LLVMBuildLoad2(builder, int32Type, lValPointer, ctx.lVal().getText());
     }
     @Override
@@ -247,7 +318,13 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         }
         PointerPointer<Pointer> argumentTypes = new PointerPointer<>(argCount);
         for(int i = 0; i < argCount; i++) {
-            argumentTypes.put(i, visit(ctx.funcRParams().param(i)));
+            LLVMValueRef arg = visit(ctx.funcRParams().param(i));
+            LLVMTypeRef argType = arrayTypes.get(arg);
+            if(argType != null && argType != LLVMPointerType(int32Type, 0)) {
+                argumentTypes.put(i, LLVMBuildGEP2(builder, argType, arg, new PointerPointer<>(zero, zero), 2, "res"));
+            } else {
+                argumentTypes.put(i, arg);
+            }
         }
         LLVMTypeRef ft = functions.get(function);
         if(LLVMGetReturnType(ft).equals(voidType))
@@ -358,7 +435,12 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     @Override
     public LLVMValueRef visitLVal(SysYParser.LValContext ctx) {
         String varName = ctx.IDENT().getText();
-        return currentScope.resolve(varName);
+        LLVMValueRef pointer = currentScope.resolve(varName);
+        if(ctx.exp().size() > 0) {
+            PointerPointer<LLVMValueRef> index = new PointerPointer<>(zero, visit(ctx.exp(0)));
+            return LLVMBuildGEP2(builder, arrayTypes.get(pointer), pointer, index, 2, "res");
+        }
+        return pointer;
     }
     private static int parseInt(String text) {
         if(text.startsWith("0x") || text.startsWith("0X")) {
@@ -376,6 +458,13 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
                 return voidType;
             default:
                 return null;
+        }
+    }
+    private void initArray(LLVMValueRef pointer, LLVMTypeRef ty, LLVMValueRef[] values) {
+        for(int i = 0; i < values.length; i++) {
+            PointerPointer<LLVMValueRef> index = new PointerPointer<>(zero, LLVMConstInt(int32Type, i, 0));
+            LLVMValueRef elementPtr = LLVMBuildGEP2(builder, ty, pointer, index, 2, "pointer");
+            LLVMBuildStore(builder, values[i], elementPtr);
         }
     }
 }
