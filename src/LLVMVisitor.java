@@ -317,6 +317,10 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         if(arrayTypes.get(lValPointer) != null) {
             return lValPointer;
         }
+        if(arrayTypes.get(currentScope.resolve(ctx.lVal().IDENT().getText())) != null &&
+           !arrayTypes.get(currentScope.resolve(ctx.lVal().IDENT().getText())).equals(LLVMPointerType(LLVMInt32Type(), 0))) {
+            return lValPointer;
+        }
         return LLVMBuildLoad2(builder, int32Type, lValPointer, ctx.lVal().getText());
     }
     @Override
@@ -335,7 +339,7 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         for(int i = 0; i < argCount; i++) {
             LLVMValueRef arg = visit(ctx.funcRParams().param(i));
             LLVMTypeRef argType = arrayTypes.get(arg);
-            if(argType != null && argType != LLVMPointerType(int32Type, 0)) {
+            if(argType != null && !argType.equals(LLVMPointerType(int32Type, 0))) {
                 argumentTypes.put(i, LLVMBuildGEP2(builder, argType, arg, new PointerPointer<>(zero, zero), 2, "res"));
             } else {
                 argumentTypes.put(i, arg);
@@ -453,6 +457,10 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         LLVMValueRef pointer = currentScope.resolve(varName);
         if(ctx.exp().size() > 0) {
             PointerPointer<LLVMValueRef> index = new PointerPointer<>(zero, visit(ctx.exp(0)));
+            if(arrayTypes.get(pointer).equals(LLVMPointerType(LLVMInt32Type(), 0))) {
+                LLVMValueRef tmp = LLVMBuildLoad2(builder, LLVMPointerType(LLVMInt32Type(), 0), pointer, varName);
+                return LLVMBuildGEP2(builder, int32Type, tmp, index, 2, "res");
+            }
             return LLVMBuildGEP2(builder, arrayTypes.get(pointer), pointer, index, 2, "res");
         }
         return pointer;
