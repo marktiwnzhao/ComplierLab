@@ -103,8 +103,10 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         // 为没有return语句的函数加上return语句
         isReturn = false;
         visit(ctx.block());
-        if(!isReturn) {
+        if(retType.equals(voidType)) {
             LLVMBuildRetVoid(builder);
+        } else {
+            LLVMBuildRet(builder, zero);
         }
         currentScope = currentScope.getEnclosingScope();
         return null;
@@ -335,8 +337,12 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         for(int i = 0; i < argCount; i++) {
             LLVMValueRef arg = visit(ctx.funcRParams().param(i));
             LLVMTypeRef argType = arrayTypes.get(arg);
-            if(argType != null && !argType.equals(LLVMPointerType(int32Type, 0))) {
-                argumentTypes.put(i, LLVMBuildGEP2(builder, argType, arg, new PointerPointer<>(zero, zero), 2, "res"));
+            if(argType != null) {
+                if(!argType.equals(LLVMPointerType(int32Type, 0))) {
+                    argumentTypes.put(i, LLVMBuildGEP2(builder, argType, arg, new PointerPointer<>(zero, zero), 2, "res"));
+                } else {
+                    argumentTypes.put(i, LLVMBuildLoad2(builder, LLVMPointerType(LLVMInt32Type(), 0), arg, "res"));
+                }
             } else {
                 argumentTypes.put(i, arg);
             }
@@ -452,7 +458,8 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         String varName = ctx.IDENT().getText();
         LLVMValueRef pointer = currentScope.resolve(varName);
         if(ctx.exp().size() > 0) {
-            PointerPointer<LLVMValueRef> index = new PointerPointer<>(zero, visit(ctx.exp(0)));
+            LLVMValueRef value = visit(ctx.exp(0));
+            PointerPointer<LLVMValueRef> index = new PointerPointer<>(zero, value);
             if(arrayTypes.get(pointer).equals(LLVMPointerType(LLVMInt32Type(), 0))) {
                 LLVMValueRef tmp = LLVMBuildLoad2(builder, LLVMPointerType(LLVMInt32Type(), 0), pointer, varName);
                 return LLVMBuildGEP2(builder, int32Type, tmp, index, 2, "res");
