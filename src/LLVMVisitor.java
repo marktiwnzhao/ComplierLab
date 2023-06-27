@@ -147,8 +147,13 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
                 pointer = LLVMBuildAlloca(builder, constType, constName);
                 if(size != 0) {
                     LLVMValueRef[] values = new LLVMValueRef[size];
+                    int initCount = constInitValContext.constInitVal().size();
                     for(int i = 0; i < size; i++) {
-                        values[i] = visit(constInitValContext.constInitVal(i));
+                        if(i < initCount) {
+                            values[i] = visit(constInitValContext.constInitVal(i));
+                        } else {
+                            values[i] = zero;
+                        }
                     }
                     initArray(pointer, constType, values);
                     arrayTypes.put(pointer, constType);
