@@ -177,8 +177,13 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
                     SysYParser.InitValContext initValContext = varDefContext.initVal();
                     if(size != 0) {
                         LLVMValueRef[] values = new LLVMValueRef[size];
+                        int initCount = initValContext.initVal().size();
                         for(int i = 0; i < size; i++) {
-                            values[i] = visit(initValContext.initVal(i));
+                            if(i < initCount) {
+                                values[i] = visit(initValContext.initVal(i));
+                            } else {
+                                values[i] = zero;
+                            }
                         }
                         LLVMSetInitializer(pointer, LLVMConstVector(new PointerPointer(values), size));
                         arrayTypes.put(pointer, varType);
@@ -203,8 +208,13 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
                     SysYParser.InitValContext initValContext = varDefContext.initVal();
                     if(size != 0) {
                         LLVMValueRef[] values = new LLVMValueRef[size];
+                        int initCount = initValContext.initVal().size();
                         for(int i = 0; i < size; i++) {
-                            values[i] = visit(initValContext.initVal(i));
+                            if(i < initCount) {
+                                values[i] = visit(initValContext.initVal(i));
+                            } else {
+                                values[i] = zero;
+                            }
                         }
                         initArray(pointer, varType, values);
                     } else {

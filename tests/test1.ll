@@ -7,11 +7,11 @@ define i32 @combine(ptr %0, i32 %1, ptr %2, i32 %3) {
 combineEntry:
   %arr1 = alloca ptr, align 8
   store ptr %0, ptr %arr1, align 8
-  %arr1_length = alloca ptr, align 8
+  %arr1_length = alloca i32, align 4
   store i32 %1, ptr %arr1_length, align 4
   %arr2 = alloca ptr, align 8
   store ptr %2, ptr %arr2, align 8
-  %arr2_length = alloca ptr, align 8
+  %arr2_length = alloca i32, align 4
   store i32 %3, ptr %arr2_length, align 4
   %i = alloca i32, align 4
   store i32 0, ptr %i, align 4
@@ -23,129 +23,136 @@ combineEntry:
 
 whileCond:                                        ; preds = %next, %combineEntry
   %i1 = load i32, ptr %i, align 4
-  %lt = icmp slt i32 %i1, ptr %arr1_length
+  %arr1_length2 = load i32, ptr %arr1_length, align 4
+  %lt = icmp slt i32 %i1, %arr1_length2
   %zext_res = zext i1 %lt to i32
   %icmp = icmp ne i32 %zext_res, 0
   br i1 %icmp, label %andTrue, label %whileEnd
 
 whileBody:                                        ; preds = %andTrue
-  %i6 = load i32, ptr %i, align 4
-  %res = getelementptr ptr, ptr %arr1, i32 0, i32 %i6
+  %i8 = load i32, ptr %i, align 4
+  %res = getelementptr ptr, ptr %arr1, i32 0, i32 %i8
   %"arr1[i]" = load i32, ptr %res, align 4
-  %j7 = load i32, ptr %j, align 4
-  %res8 = getelementptr ptr, ptr %arr2, i32 0, i32 %j7
-  %"arr2[j]" = load i32, ptr %res8, align 4
-  %lt9 = icmp slt i32 %"arr1[i]", %"arr2[j]"
-  %zext_res10 = zext i1 %lt9 to i32
-  %icmp11 = icmp ne i32 %zext_res10, 0
-  br i1 %icmp11, label %ifTrue, label %ifFalse
+  %j9 = load i32, ptr %j, align 4
+  %res10 = getelementptr ptr, ptr %arr2, i32 0, i32 %j9
+  %"arr2[j]" = load i32, ptr %res10, align 4
+  %lt11 = icmp slt i32 %"arr1[i]", %"arr2[j]"
+  %zext_res12 = zext i1 %lt11 to i32
+  %icmp13 = icmp ne i32 %zext_res12, 0
+  br i1 %icmp13, label %ifTrue, label %ifFalse
 
 whileEnd:                                         ; preds = %andTrue, %whileCond
-  %i30 = load i32, ptr %i, align 4
-  %eq = icmp eq i32 %i30, ptr %arr1_length
-  %zext_res31 = zext i1 %eq to i32
-  %icmp32 = icmp ne i32 %zext_res31, 0
-  br i1 %icmp32, label %ifTrue27, label %ifFalse28
+  %i32 = load i32, ptr %i, align 4
+  %arr1_length33 = load i32, ptr %arr1_length, align 4
+  %eq = icmp eq i32 %i32, %arr1_length33
+  %zext_res34 = zext i1 %eq to i32
+  %icmp35 = icmp ne i32 %zext_res34, 0
+  br i1 %icmp35, label %ifTrue29, label %ifFalse30
 
 andTrue:                                          ; preds = %whileCond
-  %j2 = load i32, ptr %j, align 4
-  %lt3 = icmp slt i32 %j2, ptr %arr2_length
-  %zext_res4 = zext i1 %lt3 to i32
-  %icmp5 = icmp ne i32 %zext_res4, 0
-  br i1 %icmp5, label %whileBody, label %whileEnd
+  %j3 = load i32, ptr %j, align 4
+  %arr2_length4 = load i32, ptr %arr2_length, align 4
+  %lt5 = icmp slt i32 %j3, %arr2_length4
+  %zext_res6 = zext i1 %lt5 to i32
+  %icmp7 = icmp ne i32 %zext_res6, 0
+  br i1 %icmp7, label %whileBody, label %whileEnd
 
 ifTrue:                                           ; preds = %whileBody
-  %k12 = load i32, ptr %k, align 4
-  %res13 = getelementptr <5 x i32>, ptr @sort_arr, i32 0, i32 %k12
-  %i14 = load i32, ptr %i, align 4
-  %res15 = getelementptr ptr, ptr %arr1, i32 0, i32 %i14
-  %"arr1[i]16" = load i32, ptr %res15, align 4
-  store i32 %"arr1[i]16", ptr %res13, align 4
-  %i17 = load i32, ptr %i, align 4
-  %add = add i32 %i17, 1
+  %k14 = load i32, ptr %k, align 4
+  %res15 = getelementptr <5 x i32>, ptr @sort_arr, i32 0, i32 %k14
+  %i16 = load i32, ptr %i, align 4
+  %res17 = getelementptr ptr, ptr %arr1, i32 0, i32 %i16
+  %"arr1[i]18" = load i32, ptr %res17, align 4
+  store i32 %"arr1[i]18", ptr %res15, align 4
+  %i19 = load i32, ptr %i, align 4
+  %add = add i32 %i19, 1
   store i32 %add, ptr %i, align 4
   br label %next
 
 ifFalse:                                          ; preds = %whileBody
-  %k18 = load i32, ptr %k, align 4
-  %res19 = getelementptr <5 x i32>, ptr @sort_arr, i32 0, i32 %k18
-  %j20 = load i32, ptr %j, align 4
-  %res21 = getelementptr ptr, ptr %arr2, i32 0, i32 %j20
-  %"arr2[j]22" = load i32, ptr %res21, align 4
-  store i32 %"arr2[j]22", ptr %res19, align 4
-  %j23 = load i32, ptr %j, align 4
-  %add24 = add i32 %j23, 1
-  store i32 %add24, ptr %j, align 4
+  %k20 = load i32, ptr %k, align 4
+  %res21 = getelementptr <5 x i32>, ptr @sort_arr, i32 0, i32 %k20
+  %j22 = load i32, ptr %j, align 4
+  %res23 = getelementptr ptr, ptr %arr2, i32 0, i32 %j22
+  %"arr2[j]24" = load i32, ptr %res23, align 4
+  store i32 %"arr2[j]24", ptr %res21, align 4
+  %j25 = load i32, ptr %j, align 4
+  %add26 = add i32 %j25, 1
+  store i32 %add26, ptr %j, align 4
   br label %next
 
 next:                                             ; preds = %ifFalse, %ifTrue
-  %k25 = load i32, ptr %k, align 4
-  %add26 = add i32 %k25, 1
-  store i32 %add26, ptr %k, align 4
+  %k27 = load i32, ptr %k, align 4
+  %add28 = add i32 %k27, 1
+  store i32 %add28, ptr %k, align 4
   br label %whileCond
 
-ifTrue27:                                         ; preds = %whileEnd
-  br label %whileCond33
+ifTrue29:                                         ; preds = %whileEnd
+  br label %whileCond36
 
-ifFalse28:                                        ; preds = %whileEnd
-  br label %whileCond49
+ifFalse30:                                        ; preds = %whileEnd
+  br label %whileCond53
 
-next29:                                           ; preds = %whileEnd51, %whileEnd35
-  %add64 = add ptr %arr1_length, %arr2_length
-  %sub = sub ptr %add64, i32 1
-  %res65 = getelementptr <5 x i32>, ptr @sort_arr, i32 0, ptr %sub
-  %"sort_arr[arr1_length+arr2_length-1]" = load i32, ptr %res65, align 4
+next31:                                           ; preds = %whileEnd55, %whileEnd38
+  %arr1_length69 = load i32, ptr %arr1_length, align 4
+  %arr2_length70 = load i32, ptr %arr2_length, align 4
+  %add71 = add i32 %arr1_length69, %arr2_length70
+  %sub = sub i32 %add71, 1
+  %res72 = getelementptr <5 x i32>, ptr @sort_arr, i32 0, i32 %sub
+  %"sort_arr[arr1_length+arr2_length-1]" = load i32, ptr %res72, align 4
   ret i32 %"sort_arr[arr1_length+arr2_length-1]"
 
-whileCond33:                                      ; preds = %whileBody34, %ifTrue27
-  %j36 = load i32, ptr %j, align 4
-  %lt37 = icmp slt i32 %j36, ptr %arr2_length
-  %zext_res38 = zext i1 %lt37 to i32
-  %icmp39 = icmp ne i32 %zext_res38, 0
-  br i1 %icmp39, label %whileBody34, label %whileEnd35
+whileCond36:                                      ; preds = %whileBody37, %ifTrue29
+  %j39 = load i32, ptr %j, align 4
+  %arr2_length40 = load i32, ptr %arr2_length, align 4
+  %lt41 = icmp slt i32 %j39, %arr2_length40
+  %zext_res42 = zext i1 %lt41 to i32
+  %icmp43 = icmp ne i32 %zext_res42, 0
+  br i1 %icmp43, label %whileBody37, label %whileEnd38
 
-whileBody34:                                      ; preds = %whileCond33
-  %k40 = load i32, ptr %k, align 4
-  %res41 = getelementptr <5 x i32>, ptr @sort_arr, i32 0, i32 %k40
-  %j42 = load i32, ptr %j, align 4
-  %res43 = getelementptr ptr, ptr %arr2, i32 0, i32 %j42
-  %"arr2[j]44" = load i32, ptr %res43, align 4
-  store i32 %"arr2[j]44", ptr %res41, align 4
-  %k45 = load i32, ptr %k, align 4
-  %add46 = add i32 %k45, 1
-  store i32 %add46, ptr %k, align 4
-  %j47 = load i32, ptr %j, align 4
-  %add48 = add i32 %j47, 1
-  store i32 %add48, ptr %j, align 4
-  br label %whileCond33
+whileBody37:                                      ; preds = %whileCond36
+  %k44 = load i32, ptr %k, align 4
+  %res45 = getelementptr <5 x i32>, ptr @sort_arr, i32 0, i32 %k44
+  %j46 = load i32, ptr %j, align 4
+  %res47 = getelementptr ptr, ptr %arr2, i32 0, i32 %j46
+  %"arr2[j]48" = load i32, ptr %res47, align 4
+  store i32 %"arr2[j]48", ptr %res45, align 4
+  %k49 = load i32, ptr %k, align 4
+  %add50 = add i32 %k49, 1
+  store i32 %add50, ptr %k, align 4
+  %j51 = load i32, ptr %j, align 4
+  %add52 = add i32 %j51, 1
+  store i32 %add52, ptr %j, align 4
+  br label %whileCond36
 
-whileEnd35:                                       ; preds = %whileCond33
-  br label %next29
+whileEnd38:                                       ; preds = %whileCond36
+  br label %next31
 
-whileCond49:                                      ; preds = %whileBody50, %ifFalse28
-  %i52 = load i32, ptr %i, align 4
-  %lt53 = icmp slt i32 %i52, ptr %arr1_length
-  %zext_res54 = zext i1 %lt53 to i32
-  %icmp55 = icmp ne i32 %zext_res54, 0
-  br i1 %icmp55, label %whileBody50, label %whileEnd51
+whileCond53:                                      ; preds = %whileBody54, %ifFalse30
+  %i56 = load i32, ptr %i, align 4
+  %arr1_length57 = load i32, ptr %arr1_length, align 4
+  %lt58 = icmp slt i32 %i56, %arr1_length57
+  %zext_res59 = zext i1 %lt58 to i32
+  %icmp60 = icmp ne i32 %zext_res59, 0
+  br i1 %icmp60, label %whileBody54, label %whileEnd55
 
-whileBody50:                                      ; preds = %whileCond49
-  %k56 = load i32, ptr %k, align 4
-  %res57 = getelementptr <5 x i32>, ptr @sort_arr, i32 0, i32 %k56
-  %i58 = load i32, ptr %i, align 4
-  %res59 = getelementptr ptr, ptr %arr2, i32 0, i32 %i58
-  %"arr2[i]" = load i32, ptr %res59, align 4
-  store i32 %"arr2[i]", ptr %res57, align 4
-  %k60 = load i32, ptr %k, align 4
-  %add61 = add i32 %k60, 1
-  store i32 %add61, ptr %k, align 4
-  %i62 = load i32, ptr %i, align 4
-  %add63 = add i32 %i62, 1
-  store i32 %add63, ptr %i, align 4
-  br label %whileCond49
+whileBody54:                                      ; preds = %whileCond53
+  %k61 = load i32, ptr %k, align 4
+  %res62 = getelementptr <5 x i32>, ptr @sort_arr, i32 0, i32 %k61
+  %i63 = load i32, ptr %i, align 4
+  %res64 = getelementptr ptr, ptr %arr2, i32 0, i32 %i63
+  %"arr2[i]" = load i32, ptr %res64, align 4
+  store i32 %"arr2[i]", ptr %res62, align 4
+  %k65 = load i32, ptr %k, align 4
+  %add66 = add i32 %k65, 1
+  store i32 %add66, ptr %k, align 4
+  %i67 = load i32, ptr %i, align 4
+  %add68 = add i32 %i67, 1
+  store i32 %add68, ptr %i, align 4
+  br label %whileCond53
 
-whileEnd51:                                       ; preds = %whileCond49
-  br label %next29
+whileEnd55:                                       ; preds = %whileCond53
+  br label %next31
 }
 
 define i32 @main() {
