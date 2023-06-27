@@ -317,10 +317,6 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         if(arrayTypes.get(lValPointer) != null) {
             return lValPointer;
         }
-        if(arrayTypes.get(currentScope.resolve(ctx.lVal().IDENT().getText())) != null &&
-           !arrayTypes.get(currentScope.resolve(ctx.lVal().IDENT().getText())).equals(LLVMPointerType(LLVMInt32Type(), 0))) {
-            return lValPointer;
-        }
         return LLVMBuildLoad2(builder, int32Type, lValPointer, ctx.lVal().getText());
     }
     @Override
