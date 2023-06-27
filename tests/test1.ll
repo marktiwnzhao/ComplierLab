@@ -11,11 +11,11 @@ baka_addEntry:
   store i32 %2, ptr %j, align 4
   %i1 = load i32, ptr %i, align 4
   %a2 = load ptr, ptr %a, align 8
-  %res = getelementptr i32, ptr %a2, i32 0, i32 %i1
+  %res = getelementptr i32, ptr %a2, i32 %i1
   %"a[i]" = load i32, ptr %res, align 4
   %j3 = load i32, ptr %j, align 4
   %a4 = load ptr, ptr %a, align 8
-  %res5 = getelementptr i32, ptr %a4, i32 0, i32 %j3
+  %res5 = getelementptr i32, ptr %a4, i32 %j3
   %"a[j]" = load i32, ptr %res5, align 4
   %add = add i32 %"a[i]", %"a[j]"
   %ge = icmp sge i32 %add, 10
@@ -30,11 +30,11 @@ ifTrue:                                           ; preds = %baka_addEntry
 ifFalse:                                          ; preds = %baka_addEntry
   %i6 = load i32, ptr %i, align 4
   %a7 = load ptr, ptr %a, align 8
-  %res8 = getelementptr i32, ptr %a7, i32 0, i32 %i6
+  %res8 = getelementptr i32, ptr %a7, i32 %i6
   %"a[i]9" = load i32, ptr %res8, align 4
   %j10 = load i32, ptr %j, align 4
   %a11 = load ptr, ptr %a, align 8
-  %res12 = getelementptr i32, ptr %a11, i32 0, i32 %j10
+  %res12 = getelementptr i32, ptr %a11, i32 %j10
   %"a[j]13" = load i32, ptr %res12, align 4
   %add14 = add i32 %"a[i]9", %"a[j]13"
   ret i32 %add14
@@ -65,7 +65,7 @@ whileCond:                                        ; preds = %whileBody, %kyuEntr
 whileBody:                                        ; preds = %whileCond
   %i3 = load i32, ptr %i, align 4
   %a4 = load ptr, ptr %a, align 8
-  %res = getelementptr i32, ptr %a4, i32 0, i32 %i3
+  %res = getelementptr i32, ptr %a4, i32 %i3
   %res5 = load ptr, ptr %a, align 8
   %i6 = load i32, ptr %i, align 4
   %i7 = load i32, ptr %i, align 4
@@ -97,7 +97,7 @@ whileBody12:                                      ; preds = %whileCond11
   %sum19 = load i32, ptr %sum, align 4
   %i20 = load i32, ptr %i, align 4
   %a21 = load ptr, ptr %a, align 8
-  %res22 = getelementptr i32, ptr %a21, i32 0, i32 %i20
+  %res22 = getelementptr i32, ptr %a21, i32 %i20
   %"a[i]" = load i32, ptr %res22, align 4
   %add23 = add i32 %sum19, %"a[i]"
   store i32 %add23, ptr %sum, align 4

@@ -461,8 +461,9 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
             LLVMValueRef value = visit(ctx.exp(0));
             PointerPointer<LLVMValueRef> index = new PointerPointer<>(zero, value);
             if(arrayTypes.get(pointer).equals(LLVMPointerType(LLVMInt32Type(), 0))) {
+                index = new PointerPointer<>(new LLVMValueRef[]{value});
                 LLVMValueRef tmp = LLVMBuildLoad2(builder, LLVMPointerType(LLVMInt32Type(), 0), pointer, varName);
-                return LLVMBuildGEP2(builder, int32Type, tmp, index, 2, "res");
+                return LLVMBuildGEP2(builder, int32Type, tmp, index, 1, "res");
             }
             return LLVMBuildGEP2(builder, arrayTypes.get(pointer), pointer, index, 2, "res");
         }
