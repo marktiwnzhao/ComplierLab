@@ -17,11 +17,11 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     //考虑到我们的语言中仅存在int一个基本类型，可以通过下面的语句为LLVM的int型重命名方便以后使用
     LLVMTypeRef int32Type = LLVMInt32Type();
     LLVMTypeRef voidType = LLVMVoidType();
+    LLVMTypeRef pointerType = LLVMPointerType(int32Type, 0);
     LLVMValueRef zero = LLVMConstInt(int32Type, 0, 0);
     private GlobalScope globalScope = null;
     private Scope currentScope = null;
     private int localScopeCounter = 0;
-    private boolean isReturn = false;
     String filePath;
     private final Map<LLVMValueRef, LLVMTypeRef> functions = new LinkedHashMap<>();
     private final Map<LLVMValueRef, LLVMTypeRef> arrayTypes = new LinkedHashMap<>();
@@ -64,7 +64,7 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         PointerPointer<Pointer> argumentTypes = new PointerPointer<>(argCount);
         for(int i = 0; i < argCount; i++) {
             if(ctx.funcFParams().funcFParam(i).L_BRACKT() != null && ctx.funcFParams().funcFParam(i).L_BRACKT().size() > 0) {
-                argumentTypes.put(i, LLVMPointerType(int32Type, 0));
+                argumentTypes.put(i, pointerType);
             } else {
                 argumentTypes.put(i, int32Type);
             }
@@ -91,8 +91,8 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
             String argName = ctx.funcFParams().funcFParam(i).IDENT().getText();
             LLVMValueRef pointer;
             if(ctx.funcFParams().funcFParam(i).L_BRACKT() != null && ctx.funcFParams().funcFParam(i).L_BRACKT().size() > 0) {
-                pointer = LLVMBuildAlloca(builder, LLVMPointerType(int32Type, 0), argName);
-                arrayTypes.put(pointer, LLVMPointerType(int32Type, 0));
+                pointer = LLVMBuildAlloca(builder, pointerType, argName);
+                arrayTypes.put(pointer, pointerType);
             } else {
                 pointer = LLVMBuildAlloca(builder, int32Type, argName);
             }
@@ -101,7 +101,6 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
             LLVMBuildStore(builder, arg, pointer);
         }
         // 为没有return语句的函数加上return语句
-        isReturn = false;
         visit(ctx.block());
         if(retType.equals(voidType)) {
             LLVMBuildRetVoid(builder);
@@ -245,7 +244,6 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     @Override
     public LLVMValueRef visitReturnStmt(SysYParser.ReturnStmtContext ctx) {
         //生成返回值
-        isReturn = true;
         if(ctx.exp() == null) {
             return LLVMBuildRetVoid(builder);
         }
@@ -338,10 +336,10 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
             LLVMValueRef arg = visit(ctx.funcRParams().param(i));
             LLVMTypeRef argType = arrayTypes.get(arg);
             if(argType != null) {
-                if(!argType.equals(LLVMPointerType(int32Type, 0))) {
+                if(!argType.equals(pointerType)) {
                     argumentTypes.put(i, LLVMBuildGEP2(builder, argType, arg, new PointerPointer<>(zero, zero), 2, "res"));
                 } else {
-                    argumentTypes.put(i, LLVMBuildLoad2(builder, LLVMPointerType(LLVMInt32Type(), 0), arg, "res"));
+                    argumentTypes.put(i, LLVMBuildLoad2(builder, pointerType, arg, "res"));
                 }
             } else {
                 argumentTypes.put(i, arg);
@@ -460,9 +458,9 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         if(ctx.exp().size() > 0) {
             LLVMValueRef value = visit(ctx.exp(0));
             PointerPointer<LLVMValueRef> index = new PointerPointer<>(zero, value);
-            if(arrayTypes.get(pointer).equals(LLVMPointerType(LLVMInt32Type(), 0))) {
+            if(arrayTypes.get(pointer).equals(pointerType)) {
                 index = new PointerPointer<>(new LLVMValueRef[]{value});
-                LLVMValueRef tmp = LLVMBuildLoad2(builder, LLVMPointerType(LLVMInt32Type(), 0), pointer, varName);
+                LLVMValueRef tmp = LLVMBuildLoad2(builder, pointerType, pointer, varName);
                 return LLVMBuildGEP2(builder, int32Type, tmp, index, 1, "res");
             }
             return LLVMBuildGEP2(builder, arrayTypes.get(pointer), pointer, index, 2, "res");
