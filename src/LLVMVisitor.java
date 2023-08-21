@@ -10,6 +10,10 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     LLVMBuilderRef builder = LLVMCreateBuilder();
     //考虑到我们的语言中仅存在int一个基本类型，可以通过下面的语句为LLVM的int型重命名方便以后使用
     LLVMTypeRef int32Type = LLVMInt32Type();
+    LLVMValueRef zero = LLVMConstInt(int32Type, 0, 0);
+    private GlobalScope globalScope = null;
+    private Scope currentScope = null;
+    private int localScopeCounter = 0;
     String filePath;
     // 输出LLVM IR
     public static final BytePointer error = new BytePointer();
@@ -24,6 +28,9 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     }
     @Override
     public LLVMValueRef visitProgram(SysYParser.ProgramContext ctx) {
+        globalScope = new GlobalScope(null);
+        currentScope = globalScope;
+
         super.visitProgram(ctx);
         if(LLVMPrintModuleToFile(module, filePath, error) != 0) {
             LLVMDisposeMessage(error);
@@ -31,7 +38,7 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         return null;
     }
     @Override
-    public LLVMValueRef visitFuncDef(SysYParser.FuncDefContext ctx) {
+    public LLVMValueRef visitFuncDef(SysYParser.FuncDefContext ctx) {   // 目前只有main函数
         // 生成返回类型
         LLVMTypeRef retType = int32Type;
         // 生成函数参数类型
@@ -47,14 +54,77 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         return super.visitFuncDef(ctx);
     }
     @Override
+    public LLVMValueRef visitBlock(SysYParser.BlockContext ctx) {
+        LocalScope localScope = new LocalScope(currentScope);
+        String localScopeName = localScope.getName() + localScopeCounter++;
+        localScope.setName(localScopeName);
+        currentScope = localScope;
+        LLVMValueRef res = super.visitBlock(ctx);
+        currentScope = currentScope.getEnclosingScope();
+        return res;
+    }
+    @Override
+    public LLVMValueRef visitConstDecl(SysYParser.ConstDeclContext ctx) {
+        for(SysYParser.ConstDefContext constDefContext : ctx.constDef()) {
+            String constName = constDefContext.IDENT().getText();
+            LLVMValueRef initValue = visit(constDefContext.constInitVal());
+            LLVMValueRef pointer;
+            if(currentScope instanceof GlobalScope) {
+                pointer = LLVMAddGlobal(module, int32Type, constName);
+                LLVMSetInitializer(pointer, initValue);
+            } else {
+                pointer = LLVMBuildAlloca(builder, int32Type, constName);
+                LLVMBuildStore(builder, initValue, pointer);
+            }
+
+            currentScope.define(constName, pointer);
+        }
+        return null;
+    }
+    @Override
+    public LLVMValueRef visitVarDecl(SysYParser.VarDeclContext ctx) {
+        for(SysYParser.VarDefContext varDefContext : ctx.varDef()) {
+            String varName = varDefContext.IDENT().getText();
+            LLVMValueRef pointer;
+            if(currentScope instanceof GlobalScope) {
+                pointer = LLVMAddGlobal(module, int32Type, varName);
+                if(varDefContext.ASSIGN() != null) {
+                    LLVMValueRef initValue = visit(varDefContext.initVal());
+                    LLVMSetInitializer(pointer, initValue);
+                } else {
+                    LLVMSetInitializer(pointer, zero);
+                }
+            } else {
+                pointer = LLVMBuildAlloca(builder, int32Type, varName);
+                if(varDefContext.ASSIGN() != null) {
+                    LLVMValueRef initValue = visit(varDefContext.initVal());
+                    LLVMBuildStore(builder, initValue, pointer);
+                }
+            }
+
+            currentScope.define(varName, pointer);
+        }
+        return null;
+    }
+    @Override
+    public LLVMValueRef visitAssignStmt(SysYParser.AssignStmtContext ctx) {
+        LLVMValueRef lValPointer = visit(ctx.lVal());
+        LLVMValueRef rVal = visit(ctx.exp());
+        return LLVMBuildStore(builder, rVal, lValPointer);
+    }
+    @Override
     public LLVMValueRef visitReturnStmt(SysYParser.ReturnStmtContext ctx) {
         //生成返回值
-        LLVMValueRef ret = LLVMBuildRet(builder, visit(ctx.exp()));
-        return super.visitReturnStmt(ctx);
+        return LLVMBuildRet(builder, visit(ctx.exp()));
     }
     @Override
     public LLVMValueRef visitExpParenthesis(SysYParser.ExpParenthesisContext ctx) {
         return visit(ctx.exp());
+    }
+    @Override
+    public LLVMValueRef visitLvalExp(SysYParser.LvalExpContext ctx) {
+        LLVMValueRef lValPointer = visit(ctx.lVal());
+        return LLVMBuildLoad2(builder, int32Type, lValPointer, ctx.lVal().getText());
     }
     @Override
     public LLVMValueRef visitNumberExp(SysYParser.NumberExpContext ctx) {
@@ -104,6 +174,11 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
             default:
                 return null;
         }
+    }
+    @Override
+    public LLVMValueRef visitLVal(SysYParser.LValContext ctx) {
+        String varName = ctx.IDENT().getText();
+        return currentScope.resolve(varName);
     }
     private static int parseInt(String text) {
         if(text.startsWith("0x") || text.startsWith("0X")) {
