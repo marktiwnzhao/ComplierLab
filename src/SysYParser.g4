@@ -62,10 +62,10 @@ exp : L_PAREN exp R_PAREN #expParenthesis
     ;
 
 cond : exp #expCond
-     | cond (LT | GT | LE | GE) cond #ltCond
-     | cond (EQ | NEQ) cond #eqCond
-     | cond AND cond #andCond
-     | cond OR cond #orCond
+     | lhs = cond op = (LT | GT | LE | GE) rhs = cond #ltCond
+     | lhs = cond op = (EQ | NEQ) rhs = cond #eqCond
+     | lhs = cond AND rhs = cond #andCond
+     | lhs = cond OR rhs = cond #orCond
      ;
 
 lVal : IDENT (L_BRACKT exp R_BRACKT)* ;

@@ -2,6 +2,12 @@ import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.Pointer;
 import org.bytedeco.javacpp.PointerPointer;
 import org.bytedeco.llvm.LLVM.*;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import static org.bytedeco.llvm.global.LLVM.*;
 public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     //创建module
@@ -10,11 +16,19 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     LLVMBuilderRef builder = LLVMCreateBuilder();
     //考虑到我们的语言中仅存在int一个基本类型，可以通过下面的语句为LLVM的int型重命名方便以后使用
     LLVMTypeRef int32Type = LLVMInt32Type();
+    LLVMTypeRef voidType = LLVMVoidType();
     LLVMValueRef zero = LLVMConstInt(int32Type, 0, 0);
     private GlobalScope globalScope = null;
     private Scope currentScope = null;
     private int localScopeCounter = 0;
+    private boolean isReturn = false;
     String filePath;
+    private final Map<LLVMValueRef, LLVMTypeRef> functions = new LinkedHashMap<>();
+    private final Deque<LLVMBasicBlockRef> breakBlocks = new ArrayDeque<>();
+    private final Deque<LLVMBasicBlockRef> continueBlocks = new ArrayDeque<>();
+    private LLVMValueRef currentFunction = null;
+    private LLVMBasicBlockRef ifTrueBlock = null;
+    private LLVMBasicBlockRef ifFalseBlock = null;
     // 输出LLVM IR
     public static final BytePointer error = new BytePointer();
     public LLVMVisitor(String filePath) {
@@ -38,20 +52,51 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         return null;
     }
     @Override
-    public LLVMValueRef visitFuncDef(SysYParser.FuncDefContext ctx) {   // 目前只有main函数
-        // 生成返回类型
-        LLVMTypeRef retType = int32Type;
+    public LLVMValueRef visitFuncDef(SysYParser.FuncDefContext ctx) {
+        String funcName = ctx.IDENT().getText();
+        String retTypeName = ctx.funcType().getText();
+        int argCount = 0;
+        if(ctx.funcFParams() != null) {
+            argCount = ctx.funcFParams().funcFParam().size();
+        }
         // 生成函数参数类型
-        PointerPointer<Pointer> argumentTypes = new PointerPointer<>(0);
-        //生成函数类型
-        LLVMTypeRef ft = LLVMFunctionType(retType, argumentTypes, /* argumentCount */ 0, /* isVariadic */ 0);
-        //生成函数，即向之前创建的module中添加函数
+        PointerPointer<Pointer> argumentTypes = new PointerPointer<>(argCount);
+        for(int i = 0; i < argCount; i++) {
+            argumentTypes.put(i, int32Type);
+        }
+        // 生成返回类型
+        LLVMTypeRef retType = getTypeRef(retTypeName);
+        // 生成函数类型
+        LLVMTypeRef ft = LLVMFunctionType(retType, argumentTypes, /* argumentCount */ argCount, /* isVariadic */ 0);
+        // 生成函数，即向之前创建的module中添加函数
         LLVMValueRef function = LLVMAddFunction(module, /*functionName:String*/ctx.IDENT().getText(), ft);
-        LLVMBasicBlockRef mainEntry = LLVMAppendBasicBlock(function, "mainEntry");
-        //选择要在哪个基本块后追加指令
-        LLVMPositionBuilderAtEnd(builder, mainEntry);//后续生成的指令将追加在mainEntry的后面
-
-        return super.visitFuncDef(ctx);
+        currentFunction = function;
+        LLVMBasicBlockRef entry = LLVMAppendBasicBlock(function, funcName+"Entry");
+        // 选择要在哪个基本块后追加指令
+        LLVMPositionBuilderAtEnd(builder, entry);
+        // 将函数加入符号表
+        currentScope.define(funcName, function);
+        functions.put(function, ft);
+        // 讲函数参数加入符号表
+        LocalScope localScope = new LocalScope(currentScope);
+        String localScopeName = localScope.getName() + localScopeCounter++;
+        localScope.setName(localScopeName);
+        currentScope = localScope;
+        for(int i = 0; i < argCount; i++) {
+            String argName = ctx.funcFParams().funcFParam(i).IDENT().getText();
+            LLVMValueRef pointer = LLVMBuildAlloca(builder, int32Type, argName);
+            currentScope.define(argName, pointer);
+            LLVMValueRef arg = LLVMGetParam(function, i);
+            LLVMBuildStore(builder, arg, pointer);
+        }
+        // 为没有return语句的函数加上return语句
+        isReturn = false;
+        visit(ctx.block());
+        if(!isReturn) {
+            LLVMBuildRetVoid(builder);
+        }
+        currentScope = currentScope.getEnclosingScope();
+        return null;
     }
     @Override
     public LLVMValueRef visitBlock(SysYParser.BlockContext ctx) {
@@ -115,7 +160,69 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     @Override
     public LLVMValueRef visitReturnStmt(SysYParser.ReturnStmtContext ctx) {
         //生成返回值
+        isReturn = true;
+        if(ctx.exp() == null) {
+            return LLVMBuildRetVoid(builder);
+        }
         return LLVMBuildRet(builder, visit(ctx.exp()));
+    }
+    @Override
+    public LLVMValueRef visitConditionStmt(SysYParser.ConditionStmtContext ctx) {
+        LLVMBasicBlockRef ifTrue = LLVMAppendBasicBlock(currentFunction, "ifTrue");
+        LLVMBasicBlockRef ifFalse = LLVMAppendBasicBlock(currentFunction, "ifFalse");
+        LLVMBasicBlockRef next = LLVMAppendBasicBlock(currentFunction, "next");
+        ifTrueBlock = ifTrue;
+        ifFalseBlock = ifFalse;
+        LLVMValueRef condition = LLVMBuildICmp(builder, LLVMIntNE, visit(ctx.cond()), zero, "icmp");
+
+        LLVMBuildCondBr(builder, condition, ifTrue, ifFalse);
+        // ifTrue
+        LLVMPositionBuilderAtEnd(builder, ifTrue);
+        visit(ctx.stmt(0));
+        LLVMBuildBr(builder, next);
+        // ifFalse
+        LLVMPositionBuilderAtEnd(builder, ifFalse);
+        if(ctx.ELSE() != null) {
+            visit(ctx.stmt(1));
+        }
+        LLVMBuildBr(builder, next);
+        // next
+        LLVMPositionBuilderAtEnd(builder, next);
+
+        return null;
+    }
+    @Override
+    public LLVMValueRef visitWhileStmt(SysYParser.WhileStmtContext ctx) {
+        LLVMBasicBlockRef whileCond = LLVMAppendBasicBlock(currentFunction, "whileCond");
+        LLVMBasicBlockRef whileBody = LLVMAppendBasicBlock(currentFunction, "whileBody");
+        LLVMBasicBlockRef whileEnd = LLVMAppendBasicBlock(currentFunction, "whileEnd");
+        LLVMBuildBr(builder, whileCond);
+        LLVMPositionBuilderAtEnd(builder, whileCond);
+        ifTrueBlock = whileBody;
+        ifFalseBlock = whileEnd;
+        LLVMValueRef condition = LLVMBuildICmp(builder, LLVMIntNE, visit(ctx.cond()), zero, "icmp");
+        LLVMBuildCondBr(builder, condition, whileBody, whileEnd);
+        // ifTrue
+        LLVMPositionBuilderAtEnd(builder, whileBody);
+        breakBlocks.push(whileEnd);
+        continueBlocks.push(whileCond);
+        visit(ctx.stmt());
+        breakBlocks.pop();
+        continueBlocks.pop();
+        LLVMBuildBr(builder, whileCond);
+        // ifFalse
+        LLVMPositionBuilderAtEnd(builder, whileEnd);
+        return null;
+    }
+    @Override
+    public LLVMValueRef visitBreakStmt(SysYParser.BreakStmtContext ctx) {
+        LLVMBuildBr(builder, breakBlocks.peek());
+        return null;
+    }
+    @Override
+    public LLVMValueRef visitContinueStmt(SysYParser.ContinueStmtContext ctx) {
+        LLVMBuildBr(builder, continueBlocks.peek());
+        return null;
     }
     @Override
     public LLVMValueRef visitExpParenthesis(SysYParser.ExpParenthesisContext ctx) {
@@ -129,6 +236,23 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
     @Override
     public LLVMValueRef visitNumberExp(SysYParser.NumberExpContext ctx) {
         return LLVMConstInt(int32Type, parseInt(ctx.number().getText()), 0);
+    }
+    @Override
+    public LLVMValueRef visitCallFuncExp(SysYParser.CallFuncExpContext ctx) {
+        String funcName = ctx.IDENT().getText();
+        LLVMValueRef function = globalScope.resolve(funcName);
+        int argCount = 0;
+        if(ctx.funcRParams() != null) {
+            argCount = ctx.funcRParams().param().size();
+        }
+        PointerPointer<Pointer> argumentTypes = new PointerPointer<>(argCount);
+        for(int i = 0; i < argCount; i++) {
+            argumentTypes.put(i, visit(ctx.funcRParams().param(i)));
+        }
+        LLVMTypeRef ft = functions.get(function);
+        if(LLVMGetReturnType(ft).equals(voidType))
+            return LLVMBuildCall2(builder, functions.get(function), function, argumentTypes, argCount, "");
+        return LLVMBuildCall2(builder, functions.get(function), function, argumentTypes, argCount, "returnValue");
     }
     @Override
     public LLVMValueRef visitUnaryOpExp(SysYParser.UnaryOpExpContext ctx) {
@@ -176,6 +300,62 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
         }
     }
     @Override
+    public LLVMValueRef visitLtCond(SysYParser.LtCondContext ctx) {
+        LLVMValueRef left = visit(ctx.lhs);
+        LLVMValueRef right = visit(ctx.rhs);
+        LLVMValueRef res = null;
+        switch (ctx.op.getType()) {
+            case SysYParser.LT:
+                res = LLVMBuildICmp(builder, LLVMIntSLT, left, right, "lt");
+                break;
+            case SysYParser.GT:
+                res = LLVMBuildICmp(builder, LLVMIntSGT, left, right, "gt");
+                break;
+            case SysYParser.LE:
+                res = LLVMBuildICmp(builder, LLVMIntSLE, left, right, "le");
+                break;
+            case SysYParser.GE:
+                res = LLVMBuildICmp(builder, LLVMIntSGE, left, right, "ge");
+                break;
+            default:
+                break;
+        }
+        return LLVMBuildZExt(builder, res, int32Type, "zext_res");
+    }
+    @Override
+    public LLVMValueRef visitEqCond(SysYParser.EqCondContext ctx) {
+        LLVMValueRef left = visit(ctx.lhs);
+        LLVMValueRef right = visit(ctx.rhs);
+        LLVMValueRef res = null;
+        switch (ctx.op.getType()) {
+            case SysYParser.EQ:
+                res = LLVMBuildICmp(builder, LLVMIntEQ, left, right, "eq");
+                break;
+            case SysYParser.NEQ:
+                res = LLVMBuildICmp(builder, LLVMIntNE, left, right, "neq");
+                break;
+            default:
+                break;
+        }
+        return LLVMBuildZExt(builder, res, int32Type, "zext_res");
+    }
+    @Override
+    public LLVMValueRef visitAndCond(SysYParser.AndCondContext ctx) {
+        LLVMBasicBlockRef andTrue = LLVMAppendBasicBlock(currentFunction, "andTrue");
+        LLVMValueRef condition = LLVMBuildICmp(builder, LLVMIntNE, visit(ctx.lhs), zero, "icmp");
+        LLVMBuildCondBr(builder, condition, andTrue, ifFalseBlock);
+        LLVMPositionBuilderAtEnd(builder, andTrue);
+        return visit(ctx.rhs);
+    }
+    @Override
+    public LLVMValueRef visitOrCond(SysYParser.OrCondContext ctx) {
+        LLVMBasicBlockRef orFalse = LLVMAppendBasicBlock(currentFunction, "orFalse");
+        LLVMValueRef condition = LLVMBuildICmp(builder, LLVMIntNE, visit(ctx.lhs), zero, "icmp");
+        LLVMBuildCondBr(builder, condition, ifTrueBlock, orFalse);
+        LLVMPositionBuilderAtEnd(builder, orFalse);
+        return visit(ctx.rhs);
+    }
+    @Override
     public LLVMValueRef visitLVal(SysYParser.LValContext ctx) {
         String varName = ctx.IDENT().getText();
         return currentScope.resolve(varName);
@@ -187,5 +367,15 @@ public class LLVMVisitor extends SysYParserBaseVisitor<LLVMValueRef> {
             return Integer.parseInt(text.substring(1), 8);
         }
         return Integer.parseInt(text);
+    }
+    private LLVMTypeRef getTypeRef(String type) {
+        switch (type) {
+            case "int":
+                return int32Type;
+            case "void":
+                return voidType;
+            default:
+                return null;
+        }
     }
 }
