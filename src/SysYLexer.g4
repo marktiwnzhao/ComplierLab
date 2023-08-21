@@ -1,9 +1,5 @@
 lexer grammar SysYLexer;
 
-@header {
-
-}
-
 CONST : 'const' ;
 INT : 'int' ;
 VOID : 'void' ;
