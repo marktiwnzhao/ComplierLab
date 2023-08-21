@@ -57,8 +57,8 @@ exp : L_PAREN exp R_PAREN #expParenthesis
     | number #numberExp
     | IDENT L_PAREN funcRParams? R_PAREN #callFuncExp
     | unaryOp exp #unaryOpExp
-    | exp (MUL | DIV | MOD) exp #mulExp
-    | exp (PLUS | MINUS) exp #plusExp
+    | lhs = exp op = (MUL | DIV | MOD) rhs = exp #mulExp
+    | lhs = exp op = (PLUS | MINUS) rhs = exp #plusExp
     ;
 
 cond : exp #expCond
