@@ -2,6 +2,7 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
 import java.io.IOException;
 
@@ -17,13 +18,13 @@ public class Main {
 
         SysYParser sysYParser = new SysYParser(tokenStream);
 
-        sysYParser.removeErrorListeners();
-        ErrorListener errorListener = new ErrorListener();
-        sysYParser.addErrorListener(errorListener);
-
         ParseTree tree = sysYParser.program();
 
-        if (!errorListener.isError) {
+        ParseTreeWalker walker = new ParseTreeWalker();
+        TypeCheckingListener typeCheckingListener = new TypeCheckingListener();
+        walker.walk(typeCheckingListener, tree);
+
+        if (!typeCheckingListener.isError) {
             //没有词法错误
             Visitor visitor = new Visitor(sysYLexer.getRuleNames(), sysYParser.getRuleNames());
             visitor.visit(tree);
